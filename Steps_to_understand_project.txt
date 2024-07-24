@@ -1,0 +1,248 @@
+Design a system that assists local pharmacies to find alternate medicines when the prescribed medicines are not available.
+
+This word document gives you a clear overview of the project we did.
+
+Now let me guide you through the step by step procedure of the project:
+
+and please see to it that the links are also to be adjusted according to your system path did not generalize them.
+
+
+Now first step is:
+ OCR (Optical Character Recognition) Module:
+? Use OCR technology to extract text information from the doctor's prescription.
+> For this task we have used the Google Cloud Vision Pro API which makes the task easy of reading the name of the medicine which is given as input.
+And the separate code for this task is:
+
+```
+from google.cloud import vision
+import os
+
+credentials_path = r'path_to_your_credentials_file'
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
+
+def detect_text_from_image(image_file):
+    client = vision.ImageAnnotatorClient()
+    image = vision.Image(content=image_file)
+    response = client.text_detection(image=image)
+    texts = response.text_annotations
+    if texts:
+        detected_text = texts[0].description
+        return detected_text
+    else:
+        return "No text detected in the image."
+
+```
+
+Machine Learning Algorithm(s):
+The algorithm(s) leverage the collected data to recommend suitable alternatives.
+
+
+Now step 3:
+The algorithm we made use of is the Knn(K nearest neighbours) for achieving the accurate medicine from the dataset by computing the distance of the medicines using euclidean and then algorithm assigns the most common class label among these neighbors to the target data point.
+> Distance Metric: Euclidean
+
+
+    And the coding part goes here:
+
+```
+import pandas as pd
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.neighbors import NearestNeighbors
+from fuzzywuzzy import process
+import re
+
+data = pd.read_csv("path_to_indian_medicine_data.csv")
+data.fillna('', inplace=True)
+
+vectorizer = CountVectorizer()
+composition_vectors = vectorizer.fit_transform(data['short_composition1'])
+knn_model = NearestNeighbors(n_neighbors=5, metric='euclidean')
+knn_model.fit(composition_vectors)
+
+def split_medicine_name(medicine_name):
+    pattern = r'(?P<name>[a-zA-Z\s-]+)\s*(?P<dosage>\d+\s?(?:mg|g|ml)?|\bTablet\b|\bCapsule\b)?'
+    match = re.match(pattern, medicine_name)
+    if match:
+        name = match.group('name').strip()
+        dosage = match.group('dosage').strip() if match.group('dosage') else None
+        return name, dosage
+    else:
+        return None, None
+
+def find_composition_and_alternatives(input_med_names, knn_model, vectorizer, data):
+    results = []
+    for input_med_name in input_med_names:
+        name, dosage = split_medicine_name(input_med_name)
+        if name:
+            matched_name = process.extractOne(name, data['name'])[0]
+            input_composition = data.loc[data['name'] == matched_name, 'short_composition1'].values[0]
+            input_vector = vectorizer.transform([input_composition])
+            distances, indices = knn_model.kneighbors(input_vector)
+            alternative_medicines = data.iloc[indices[0]][data.columns[0]].tolist()
+            results.append((matched_name, input_composition, alternative_medicines))
+        else:
+            results.append((input_med_name, "N/A", []))
+    return results
+
+input_med_names = ["Cetapin XR 500mg", "Met XL 50 Tablet"]
+results = find_composition_and_alternatives(input_med_names, knn_model, vectorizer, data)
+
+for idx, (matched_name, composition, alternative_medicines) in enumerate(results, start=1):
+    print(f"Result {idx}:")
+    print(f"Matched medicine name: {matched_name}")
+    print(f"Composition of {matched_name}: {composition}")
+    print(f"Alternative medicines for {matched_name}:")
+    for medicine in alternative_medicines:
+        print(medicine)
+    print()
+
+```
+
+User Interface (UI):
+Develop a user-friendly interface for pharmacists to input prescription data and receive alternative medicine recommendations.
+> I have used streamlit: it is a front-end web framework used for delivering powerful dynamic apps in a very few lines of code.
+* Now I would like to provide you the code for the same:
+
+The StreamLit Code:
+
+```
+import base64
+import requests
+import streamlit as st
+
+def set_background(image_path):
+    with open(image_path, "rb") as img_file:
+        bin_str = base64.b64encode(img_file.read()).decode()
+    page_bg_img = '''
+    <style>
+    .stApp {
+    background-image: url("data:image/jpeg;base64,%s");
+    background-size: cover;
+    }
+    </style>
+    ''' % bin_str
+    st.markdown(page_bg_img, unsafe_allow_html=True)
+
+def main():
+    background_image_path = r'path_to_your_background_image'
+    set_background(background_image_path)
+
+    st.markdown('<h2 style="color:black;font-size:50px;font-weight:bold">Please input your prescription</h2>', unsafe_allow_html=True)
+    
+    uploaded_file = st.file_uploader("Upload an image...", type=["jpg", "png", "jpeg"])
+
+    if uploaded_file is not None:
+        col1, col2 = st.columns([1, 3])
+        with col1:
+            pass
+        with col2:
+            uploaded_image_placeholder = st.empty()
+            uploaded_image_placeholder.image(uploaded_file, caption='Uploaded Image', use_column_width=True)
+
+        if st.button('Perform OCR'):
+            files = {'image': uploaded_file}
+            response = requests.post('http://127.0.0.1:8000/perform_ocr', files=files)
+
+            if response.status_code == 200:
+                detected_text = response.text
+                detected_text_lines = detected_text.splitlines()
+                col3, col4 = st.columns([1, 3])
+                with col3:
+                    pass
+                with col4:
+                    st.markdown(f'<p style="color:black; font-size:20px;font-weight:bold">{detected_text}</p>', unsafe_allow_html=True)
+            else:
+                st.error("Failed to perform OCR. Please try again.")
+
+if __name__ == "__main__":
+    main()
+
+```
+
+
+> And the backend I used is FastAPI: 
+
+Small Description about FastAPI:
+
+> FastAPI is a backend web framework for building API’s. It helps developers create API’s quickly and efficiently by providing tools and features to handle HTTPS requests, process data and generate responses.
+Backend Code:
+
+> it is a backend web framework for building API’s. It helps developers create API’s quickly and efficiently by providing tools and features to handle HTTPS requests, process data and generate responses.
+
+> This includes my Machine Learning model integration, the google cloud vision api integration and mainly the front end integration.
+
+```
+from fastapi import FastAPI, File, UploadFile
+from google.cloud import vision
+import pandas as pd
+import os
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.neighbors import NearestNeighbors
+from fuzzywuzzy import process
+import re
+
+app = FastAPI()
+
+credentials_path = r'path_to_your_credentials_file'
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
+
+data = pd.read_csv("path_to_indian_medicine_data.csv")
+data.fillna('', inplace=True)
+
+vectorizer = CountVectorizer()
+composition_vectors = vectorizer.fit_transform(data['short_composition1'])
+knn_model = NearestNeighbors(n_neighbors=5, metric='euclidean')
+knn_model.fit(composition_vectors)
+
+def detect_text_from_image(image_bytes):
+    client = vision.ImageAnnotatorClient()
+    image = vision.Image(content=image_bytes)
+    response = client.text_detection(image=image)
+    texts = response.text_annotations
+    if texts:
+        detected_text = texts[0].description
+        return detected_text
+    else:
+        return None
+
+def extract_medicine_names(detected_text):
+    pattern = r"[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:\s+[IVXLCDM]+)?(?:\s+\d{1,4}(?:\.\d{1,2})?(?:mg|g|ml|mcg)?)?"
+    matches = re.findall(pattern, detected_text)
+    medicine_names = [match.strip() for match in matches if len(match.strip().split()) > 1]
+    return medicine_names
+
+def find_composition_and_alternatives(input_med_names, knn_model, vectorizer, data):
+    results = []
+    for input_med_name in input_med_names:
+        matched_name = process.extractOne(input_med_name, data['name'])[0]
+        input_composition = data.loc[data['name'] == matched_name, 'short_composition1'].values[0]
+        input_vector = vectorizer.transform([input_composition])
+        distances, indices = knn_model.kneighbors(input_vector)
+        alternative_medicines = data.iloc[indices[0]][data.columns[0]].tolist()
+        results.append((matched_name, input_composition, alternative_medicines))
+    return results
+
+@app.post("/perform_ocr")
+async def perform_ocr(image: UploadFile = File(...)):
+    image_content = await image.read()
+    detected_text = detect_text_from_image(image_content)
+
+    if detected_text:
+        extracted_medicine_names = extract_medicine_names(detected_text)
+        results = find_composition_and_alternatives(extracted_medicine_names, knn_model, vectorizer, data)
+
+        formatted_results = ""
+        for idx, (matched_name, composition, alternative_medicines) in enumerate(results, start=1):
+            formatted_results += f"Matched medicine name: {matched_name}"
+            formatted_results += f"Composition of matched medicine: {composition}"
+            formatted_results += f"Alternative medicines for matched medicine:"
+            formatted_results += "\n".join(alternative_medicines)
+
+        return formatted_results
+    else:
+        return "No text detected in the image"
+
+```
+
+
+ 

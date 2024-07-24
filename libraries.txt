@@ -1,0 +1,29 @@
+    Implementation and Libraries of the project:
+
+First starting with my backend functionality of the code the mainly used libraries and description are as follows:
+> pip install fastapi - Used for creating web APIs with Python.
+> pip install fuzzywuzzy: Used for fuzzy string matching.
+> pip install google-cloud-vision: Used for interacting with Google Cloud Vision API for text detection in images.
+> pip install requests: Used for making HTTP requests to your FastAPI backend.
+> pip install scikit-learn: Used for machine learning tasks such as vectorization and nearest neighbors search.
+> pip install uvicorn: ASGI server used to run the FastAPI application.
+
+To run my backend code you need to go to terminal and then run the following command:
+
+uvicorn main:app --reload
+
+
+Now I want to explain about my front-end functionality:
+
+Using Base64 encoding for images is a common practice
+
+I majorly used two libraries:
+
+> pip install streamlit: install the Streamlit library, a popular Python framework for building interactive web applications with simple Python scripts.
+> pip install requests: Used for making HTTP requests to your streamlit frontend.
+
+The command you need to run for my frontend is:
+
+streamlit run filename.py
+
+
